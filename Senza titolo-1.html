@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<title>Configurable</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta charset="utf-8">
+    	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.css" />
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+	</head>
+	<body>
+        <h1>Configuration Pebble Application</h1>
+	  	<div id="menu">
+			<h1>Manual insertion of the IP Address</h1>
+            <button type="button" id="o1">show</button>
+            <button type="button" id="o1a">hide</button>
+        	<div style="display:none" id="opt1">
+		            <p> Please insert the Ip Address here. Thanks! </p>
+          			<p><label for="ip">Bridge IP Address:</label>
+          			<textarea cols="40" rows="1" name="ip" id="ip"></textarea>
+ 					</p>
+              		<button type="submit"  id="b-cancel">Cancel</button>
+              		<button type="submit"  id="b-submit">Submit</button>
+            </div>
+			
+            <h1>Automatical find IP Address</h1>
+            <button type="button" id="o2">set</button>
+        </div>
+    <script>
+      function saveOptions() {
+        var options = {
+			'ip':$("#ip").val()
+		};
+        //Add all textual values
+        return options;
+      }
+      $(document).ready(function(){
+	  	$( "#o1" ).click(function() {
+            $( "#opt1" ).show( "fast" );
+        
+            
+            $("#b-cancel").click(function() {
+                    console.log("Cancel");
+                    document.location = "pebblejs://close";
+            });
+            $("#b-submit").click(function() {
+                   console.log("carlo");
+                    console.log("Submit");
+                    var location = "pebblejs://close#" + encodeURIComponent(JSON.stringify(saveOptions()));
+                    console.log("Warping to: " + location);
+                    console.log(location);
+                    document.location = location;
+            });
+        });
+        $("#o1a").click(function(){
+            $("#opt1").hide("fast");
+        });
+		
+        $( "#o2" ).click(function() {
+            $( "#opt2" ).show( "fast" );
+                var request = $.ajax({
+                    url: "https://www.meethue.com/api/nupnp",
+                    method: "GET",
+                    dataType: "json"
+                    });
+                    request.done(function( msg ) {
+                        var ipAddress=msg[0].internalipaddress;
+                    //$( "#log" ).html( msg );
+var options = {ip:ipAddress};
+                        var location = "pebblejs://close#" + encodeURIComponent(JSON.stringify(options));
+                        console.log("Warping to: " + location);
+                        console.log(location);
+                        document.location = location;
+                        $("#text1").append("<p>The ip address is: </p>"+ipAddress);
+                    });
+                    request.fail(function( jqXHR, textStatus ) {
+                    alert( "Request failed: " + textStatus );
+                });
+        });
+        $("#o2a").click(function(){
+            $("#opt2").hide("fast");
+        });
+        //Set form values to whatever is passed in.
+        var obj = jQuery.parseJSON(decodeURIComponent(window.location.search.substring(1)));
+        for(key in obj) {
+          $("#"+[key]).val(obj[key]);
+          $("#"+[key]).val(obj[key]).slider("refresh");       
+        }
+		});
+      
+    </script>
+	
+  </body>
+</html>
