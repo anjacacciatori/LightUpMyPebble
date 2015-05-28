@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: app.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: app.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @fileOverview This is the code of the Project "Light Up my Pebble"
+ *
+ * @author Anja Cacciatori
+ * @author Nina Armelle Meakouang Yefoue
+ *
+ */
+/** The following lines are making some requests to the Pebble libraries.
+* First of all the library "ui" is called. The lines below the UI request, some functions are called
+*/
+var UI = require('ui');
+/**This variable is calleng the accellerator
+* @namespace Accel
+*/
+var Accel = require('ui/accel');
+var Vector2 = require('vector2');
+var ajax= require('ajax');
+
+/**
+ * This variable is representing a spashText which shows to the user that the data are recorded from the accellerator
+ *
+ */
+
+var spashText = new UI.Text({
+    position: new Vector2(0, 0),
+    size: new Vector2(144, 168),
+    text:'Recording data from accelerometer...',
+    font:'GOTHIC_28_BOLD',
+    color:'black',
+    textOverflow:'wrap',
+    textAlign:'center',
+    backgroundColor:'white'
+  });
+
+var spashWind = new UI.Window();
+/**This object is a window which has to be shown on the smartwatch
+* @namespace Window
+*/
+var wind = new UI.Window();
+/** The url used in the get queries done to the lights is defined*/
+var getUrl='http://';
+/** The url used for PUT queries to a light is defined*/
+var putUrl='http://';
+/** The url used for a GET query to a group is defined*/
+var getGroupUrl;
+/**The url used for the PUT query to a group is defined*/
+var putGroupUrl;
+/**The variable which contains the IP address to which the HTTP queries are done */
+var ipAddr;
+/**This variable indicates which light is selected*/
+var lightNum;
+/** This variable indicates the authorized user*/
+var developer;
+/** This variable  indicates which group is selected*/
+var groupNum;
+
+var errorajax = new UI.Text({
+    position: new Vector2(0, 0),
+    size: new Vector2(144, 168),
+    text:'Sorry!Probably you set the wrong ip address',
+    font:'GOTHIC_28_BOLD',
+    color:'black',
+    textOverflow:'wrap',
+    textAlign:'center',
+    backgroundColor:'white'
+  });
+
+var ip;
+var ipA;
+var errorLight;
+
+/**This function gets as input the ip address and sets the global variables
+*@param{string} ip
+*
+*/
+function updateUrl(ip) {
+  developer='iacopodeveloper';
+  getUrl='http://'+ipAddr+'/api/'+developer+'/lights/'+lightNum+'/'; //'http://192.168.0.13:8000/api/newdeveloper/lights/1/';
+  putUrl='http://'+ipAddr+'/api/'+developer+'/lights/'+lightNum+'/state/'; //'http://192.168.100.74/api/iacopodeveloper/lights/4/state';
+  getGroupUrl='http://'+ipAddr+'/api/'+developer+'/groups/'+groupNum+'/'; //'http://192.168.0.13:8000/api/newdeveloper/lights/1/';
+  putGroupUrl='http://'+ipAddr+'/api/'+developer+'/groups/'+groupNum+'/action/'; //'http://192.168.100.74/api/iacopodeveloper/lights/4/state';
+}
+
+/**
+ *   Settings on phone
+ *
+*/
+
+var initialized = false;
+var options = {};
+
+Pebble.addEventListener("ready", function() {
+  console.log("ready called!");
+  initialized = true;
+});
+
+Pebble.addEventListener("showConfiguration", function() {
+  console.log("showing configuration");
+  Pebble.openURL('http://www.lump.pe.hu');
+});
+
+Pebble.addEventListener("webviewclosed", function(e) {
+  //Pebble.sendAppMessage(options);
+  console.log(e.response);
+  console.log("configuration closed");
+  // webview closed
+  //Using primitive JSON validity and non-empty check
+  if (e.response.charAt(0) == "{" &amp;&amp; e.response.slice(-1) == "}" &amp;&amp; e.response.length > 5) {
+    options = JSON.parse(decodeURIComponent(e.response));
+    ipA = encodeURIComponent(options.ip);
+    console.log(ipA);
+    console.log("Options = " + JSON.stringify(options));
+    ipAddr=ipA;
+    console.log(ipAddr);
+    //updateUrl(ipAddr);
+    console.log(getUrl);
+  } else {
+    console.log("Cancelled");
+  }
+});
+
+/*
+ *Close settings
+ *
+ */
+
+/**
+ * Variable inizialization
+ *
+ */
+ipAddr='192.168.100.74'; //192.168.100.74 //U-Hopper address
+updateUrl(ipAddr);
+spashWind.add(spashText);
+spashWind.show();
+
+
+/* 
+ * definition of menu!
+ * 
+ */
+/**
+*This defines a menu which has items characherized by a title and a subtitel
+* @namespace menu
+*/
+var menu = new UI.Menu({
+  sections: [{
+    title: 'Select what you want to do',
+    items: [{
+      title:'Select # of Light' //case 0
+    }, {
+      title: 'Switching Light on or off', //case 1
+      subtitle: 'Is my light on?',
+    }, {
+      title: 'Change color of light' //case 2
+    },{
+      title: 'Change light saturation' //case 3
+    },{
+      title: 'Change light brightness' //case 4
+    },{
+      title: 'Light colorloop' //case 5
+    },{
+      title: 'Select Group' //case 6
+    },{
+      title: 'Switch Group on/off' //case 7
+    }, {
+      title: 'Change color of group' //case 8
+    },{
+      title: 'Change group saturation' //case 9
+    },{
+      title: 'Change group brightness' //case 10
+    },{
+      title: 'Group colorloop' //case 11
+    },{
+      title: 'One-Time Configuration', //case 12
+      subtitle:'If the brigde has more memory then me!'
+    },{
+      title: 'Ip address discovery' //case 13
+    }]
+  }]
+});
+
+
+/** &lt;p> This function defines what each selected item of the menu.
+ * This function is composed by a switch with 14 cases. 
+ * &lt;li> &lt;ul>Case 0 and case 6 allows the user to select respectivly the light or the group that they want to modify &lt;/ul> &lt;/li>
+ * &lt;li>&lt;ul>Case 1 and case 7 enables the user to swith respectivly the light or the lights of a group on or off &lt;/ul> &lt;/li>
+ * &lt;li>&lt;ul> Case 2 and case 8 allows the user to change respectivly the light or group colors&lt;/ul> &lt;/li>
+ * &lt;li>&lt;ul> Case 3 and case 9 allows the user to change respectivly the light or group saturation&lt;/ul> &lt;/li>
+ * &lt;li>&lt;ul> Case 4 and case 10 allows the user to change respectivly the light or group brightness&lt;/ul> &lt;/li>
+ * &lt;li>&lt;ul> Case 5 and case 11 allows the user to enable or disable the color loop&lt;/ul> &lt;/li>
+ * &lt;li>&lt;ul> Case 12 allows to configure an authorized user &lt;/ul> &lt;/li>
+ * &lt;li>&lt;ul> Case 13 searches the bridge IP address &lt;/ul> &lt;/li>
+ *&lt;/p>
+ * @function .on
+ *@memberof menu
+ *@see menu
+ */
+
+menu.on('select', function(e){
+  console.log('Selected item #' + e.itemIndex + ' of section #' + e.sectionIndex);
+  console.log('The item is titled "' + e.item.title + '"');
+
+/**Switches between the elements of the menu*/
+switch(e.itemIndex){  
+    
+    /**
+     * Change light number
+     * 
+     */
+    
+  case 0:
+  /** This function is initializing the accellerator.
+  * @function init
+  * @memberof Accel
+  */
+    Accel.init();
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    var ln=0;
+    var url = 'http://'+ipAddr+'/api/'+developer+'/lights';
+    console.log('doing ajax request');
+    console.log(url);
+    /** &lt;p>Does PUT and GET queries in order to obtain the state of the light or of a group or to set some values on them.&lt;/p>
+    * &lt;p>This function is basically composed by
+    &lt;li>&lt;ul> A first part with a field 
+            &lt;li  style="margin-left:5em">&lt;ul> "url" : it indicates the url to which the request has to be done&lt;/ul>&lt;/li>
+            &lt;li  style="margin-left:5em">&lt;ul> "method" : it indicates if the query is a GET, PUT, POST or DELATE &lt;/ul>&lt;/li>
+            &lt;li  style="margin-left:5em">&lt;ul> "type" : it indicates the type of data retuned. In our case it's a"json" &lt;/ul>&lt;/li>
+            &lt;li style="margin-left:5em">&lt;ul> "data" : in the post and put query it represents the data that should be imposed on the destination&lt;/ul>&lt;/li>
+    &lt;/ul>&lt;/li>
+    &lt;li>&lt;ul> The function(data) is defining what the code should do which the returned data if the request is successfull done &lt;/ul>&lt;/li>
+    &lt;li>&lt;ul> The function(error) is used if the HTTP query fails &lt;/ul>&lt;/li>
+    &lt;/p>
+
+    @function ajax
+    */
+    ajax({
+          url: url,
+          method:'get',
+          type:'json'
+          },
+          /** Takes the data, and looks it it has an error, if not it counts the number of lights*/
+          function(data){
+            var key=[];
+            var lights=data;
+            
+            errorLight=data[0];
+            console.log(errorLight);
+            if(errorLight!==undefined){
+                key=Object.keys(errorLight);
+                console.log(key[0]);
+            }else{
+                key[0]="success";
+            }
+            if(key[0]==="error"){
+                console.log(errorLight.error.description);
+            
+                var errore = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text: errorLight.error.description,
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                spashWind.hide();
+/** This function hides the window that is shown
+  * @function hide
+  * @memberof Window
+  */
+                wind.hide();
+/** This function adds a text to the window that is shown
+  * @function add
+  * @memberof Window
+  * @param{object} text
+  */
+                wind.add(errore);
+/** This function shows the window 
+  * @function show
+  * @memberof Window
+  */
+                wind.show();
+                              
+            }else{
+            /**Funtion used to calculate the size of an object
+            * @global
+            *@param{Object} obj
+            *@return{num} size
+            */
+              Object.size = function(obj) { //Function to find the number of light the light
+                      var size = 0, key;
+                      for (key in obj) {
+                          if (obj.hasOwnProperty(key)) size++;
+                          }
+                      return size;
+                      };
+              ln=Object.size(lights);
+              console.log(ln);
+            }
+            },
+          function(error) {
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+              console.log('The ajax request failed: ' + error);
+          });
+    var k=1;
+    if(errorLight===undefined){
+/** This function is is defining what the accellerator does.
+  * @function on
+  * @memberof Accel
+  * @param{String} tap
+  */
+      Accel.on('tap',function(e){
+            
+            var text = new UI.Text({
+                        position: new Vector2(0, 0),
+                        size: new Vector2(144, 168),
+                        text:'You choose the Light '+k,
+                        font:'GOTHIC_28_BOLD',
+                        color:'black',
+                        textOverflow:'wrap',
+                        textAlign:'center',
+                        backgroundColor:'white'
+                        });
+            
+             spashWind.hide();
+             wind.hide();
+             wind.add(text);
+             wind.show();         
+      lightNum=k;
+      if(k&lt;ln){k=k+1;
+      }else{
+        k=1;
+      }
+      getUrl='http://'+ipAddr+'/api/'+developer+'/lights/'+lightNum+'/'; 
+      putUrl='http://'+ipAddr+'/api/'+developer+'/lights/'+lightNum+'/state/'; 
+      });
+    } 
+  break;
+    
+     /**
+     * Switching lights on/off
+     *
+     */
+    
+  case 1: 
+    Accel.init();
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    var status;
+    ajax({
+          url: getUrl,
+          method: 'get',
+          type: 'json',
+          },
+          function(data){
+              var key=[];
+              
+              errorLight=data[0];
+              console.log(errorLight);
+              if(errorLight!==undefined){
+                  key=Object.keys(errorLight);
+                  console.log(key[0]);
+              }else{
+                  key[0]="success";
+              }
+              if(key[0]==="error"){
+                console.log(errorLight.error.description);
+                var errore = new UI.Text({
+                      position: new Vector2(0, 0),
+                      size: new Vector2(144, 168),
+                      text: errorLight.error.description,
+                      font:'GOTHIC_28_BOLD',
+                      color:'black',
+                      textOverflow:'wrap',
+                      textAlign:'center',
+                      backgroundColor:'white'
+                      });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+                              
+             }else{
+                status=data.state.on;
+             }
+        }, 
+        function(error) {
+            console.log('The ajax request failed: ' + error);
+            spashWind.hide();
+            wind.hide();
+            wind.add(errorajax);
+            wind.show();
+          }); //chiude ajax
+    if(errorLight===undefined){
+      Accel.on('tap', function(e){
+          console.log(status);
+          if(status===false){
+          var text = new UI.Text({
+              position: new Vector2(0, 0),
+              size: new Vector2(144, 168),
+              text:'Your light is ON!',
+              font:'GOTHIC_28_BOLD',
+              color:'black',
+              textOverflow:'wrap',
+              textAlign:'center',
+              backgroundColor:'white'
+              });
+          ajax({  
+                url: putUrl,
+                method: 'put',
+                type: 'json',
+                data: {"on":true}
+                },
+                function(data) {
+                    spashWind.hide();
+                    wind.hide();
+                    wind.add(text);
+                    wind.show(); 
+                    ajax({
+                          url: getUrl,
+                          method: 'get',
+                          type: 'json',
+                          },
+                          function(data){                          
+                              status=data.state.on;
+                          }, 
+                          function(error) {
+                              console.log('The ajax request failed: ' + error);
+                              spashWind.hide();
+                              wind.hide();
+                              wind.add(errorajax);
+                              wind.show();
+                          }); //chiude ajax
+                }, 
+                function(error) {
+                    spashWind.hide();
+                    wind.hide();
+                    wind.add(errorajax);
+                    wind.show();
+                    console.log('The ajax request failed: ' + error);
+                }); 
+              
+          }else{
+                var newText = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text:'Your light is OFF!',
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                 ajax({
+                        url: putUrl,
+                        method: 'put',
+                        type: 'json',
+                        data: {"on":false}
+                        },
+                        function(data) {
+                          
+                             spashWind.hide();
+                             wind.hide();
+                             wind.add(newText);
+                             wind.show(); 
+                             ajax({
+                                  url: getUrl,
+                                  method: 'get',
+                                  type: 'json',
+                            },
+                            function(data){                          
+                                  status=data.state.on;
+                            }, 
+                            function(error) {
+                                  console.log('The ajax request failed: ' + error);
+                                  spashWind.hide();
+                                  wind.hide();
+                                  wind.add(errorajax);
+                                  wind.show();
+                            }); //chiude ajax
+                        }, 
+                        function(error) {
+                            console.log('The ajax request failed: ' + error);
+                            spashWind.hide();
+                            wind.hide();
+                            wind.add(errorajax);
+                            wind.show();
+                        }); 
+            }
+          }); //chiude accel.on
+    }  
+ break;
+    
+    /**
+     * Changing light colors
+     *
+     */
+
+ case 2: 
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    Accel.init();
+
+    var text = new UI.Text({
+        position: new Vector2(0, 0),
+        size: new Vector2(144, 168),
+        text:'You changed the color, is it the one you wanted?',
+        font:'GOTHIC_28_BOLD',
+        color:'black',
+        textOverflow:'wrap',
+        textAlign:'center',
+        backgroundColor:'white'
+        });
+  
+    var i;
+    ajax({
+         url: getUrl,
+         type: 'json'
+         },
+         function(data) {
+             var key=[];         
+             
+             errorLight=data[0];
+             console.log(errorLight);
+             if(errorLight!==undefined){
+                 key=Object.keys(errorLight);
+                 console.log(key[0]);
+             }else{
+                 key[0]="success";
+             }
+             if(key[0]==="error"){
+                 console.log(errorLight.error.description);
+                 var errore = new UI.Text({
+                     position: new Vector2(0, 0),
+                     size: new Vector2(144, 168),
+                     text: errorLight.error.description,
+                     font:'GOTHIC_28_BOLD',
+                     color:'black',
+                     textOverflow:'wrap',
+                     textAlign:'center',
+                     backgroundColor:'white'
+                     });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+             }else{
+                i=data.state.hue;
+             }
+           }, 
+           function(error) {
+               spashWind.hide();
+               wind.hide();
+               wind.add(errorajax);
+               wind.show();
+               console.log('The ajax request failed: ' + error);
+            }); 
+    if(errorLight===undefined){
+      Accel.on('tap', function(e){
+        ajax({
+             url: putUrl,
+             method: 'put',
+             type: 'json',
+             data: {"hue":i}
+             },
+             function(data) {
+                       spashWind.hide();
+                       wind.hide();
+                       wind.add(text);
+                       wind.show(); 
+                       if(i&lt;52850){i=i+12150;}
+                       else{i=0;}
+             },
+            function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+            }); 
+        });
+    }
+break;
+    
+    /**
+     * Changing light saturation
+     *
+     */
+    
+case 3: 
+     Accel.init();
+     spashWind.add(spashText);
+     spashWind.show();
+    wind.hide();
+     var newText = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You changed the saturation, is it the one you wanted? !',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+     var y;
+     ajax({
+          url: getUrl,
+          type: 'json'
+          },
+          function(data) {
+              var key=[];
+            
+              errorLight=data[0];
+              console.log(errorLight);
+              if(errorLight!==undefined){
+                  key=Object.keys(errorLight);
+                  console.log(key[0]);
+              }else{
+                  key[0]="success";
+              }
+              if(key[0]==="error"){
+                  console.log(errorLight.error.description);
+                  var errore = new UI.Text({
+                      position: new Vector2(0, 0),
+                      size: new Vector2(144, 168),
+                      text: errorLight.error.description,
+                      font:'GOTHIC_28_BOLD',
+                      color:'black',
+                      textOverflow:'wrap',
+                      textAlign:'center',
+                      backgroundColor:'white'
+                      });
+                  spashWind.hide();
+                  wind.hide();
+                  wind.add(errore);
+                  wind.show();
+              }else{
+                  y=data.state.sat;
+              }
+          }, 
+          function(error) {
+              console.log('The ajax request failed: ' + error);
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+          }); 
+    if(errorLight===undefined){
+       Accel.on('tap', function(e){
+            ajax({
+                 url: putUrl,
+                 method: 'put',
+                 type: 'json',
+                 data: {"sat":y}
+                 },
+                 function(data) {
+                     spashWind.hide();
+                     wind.hide();
+                     wind.add(newText);
+                     wind.show(); 
+                     if(y&lt;204){y=y+50;}
+                     else{y=0;}
+                 }, 
+                 function(error) {
+                     spashWind.hide();
+                     wind.hide();
+                     wind.add(errorajax);
+                     wind.show();
+                     console.log('The ajax request failed: ' + error);
+                 }); 
+       });
+    }
+  break;
+    
+    /**
+     * Changing light brightness
+     *
+     */
+    
+  case 4: 
+     Accel.init();
+     spashWind.add(spashText);
+     spashWind.show();
+    wind.hide();
+     var text1 = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You changed the brightness, is it the one you wanted? !',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+     var z;
+     ajax({
+          url: getUrl,
+          type: 'json'
+          },
+          function(data) {
+            var key=[];
+            errorLight=data[0];
+            console.log(errorLight);
+            if(errorLight!==undefined){
+              key=Object.keys(errorLight);
+              console.log(key[0]);
+            }else{
+              key[0]="success";
+            }
+            if(key[0]==="error"){
+                console.log(errorLight.error.description);
+                var errore = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text: errorLight.error.description,
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+            }else{
+                z=data.state.bri;
+            }
+          }, 
+          function(error) {
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+              console.log('The ajax request failed: ' + error);
+              }); 
+    if(errorLight===undefined){
+     Accel.on('tap', function(e){
+        ajax({
+             url: putUrl,
+             method: 'put',
+             type: 'json',
+             data: {"bri":z}
+             },
+             function(data) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(text1);
+                 wind.show(); 
+                 if(z&lt;204){z=z+50;}
+                 else{z=1;}
+             }, 
+             function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+                 }); 
+       });
+    }
+  break;
+    
+    /**
+     * light color loop
+     *
+     */
+    
+  case 5: 
+    Accel.init();
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    var loop;
+    var textLoop = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You activated the colorloop!',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+    var textNone = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You deactivated the colorloop!',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+
+     ajax({
+          url: getUrl,
+          type: 'json'
+          },
+          function(data) {
+            var key=[];
+            errorLight=data[0];
+            console.log(errorLight);
+            if(errorLight!==undefined){
+              key=Object.keys(errorLight);
+              console.log(key[0]);
+            }else{
+              key[0]="success";
+            }
+            if(key[0]==="error"){
+                console.log(errorLight.error.description);
+                var errore = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text: errorLight.error.description,
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+            }else{
+                loop=data.state.effect;
+            }
+          }, 
+          function(error) {
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+              console.log('The ajax request failed: ' + error);
+              }); 
+    if(errorLight===undefined){
+     Accel.on('tap', function(e){
+      if (loop==="none"){
+        ajax({
+             url: putUrl,
+             method: 'put',
+             type: 'json',
+             data: {"effect":"colorloop"}
+             },
+             function(data) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(textLoop);
+                 wind.show(); 
+               ajax({
+                  url: getUrl,
+                  type: 'json'
+                  },
+                  function(data) {
+           
+                    loop=data.state.effect;
+
+                  }, 
+                  function(error) {
+                    spashWind.hide();
+                    wind.hide();
+                    wind.add(errorajax);
+                    wind.show();
+                    console.log('The ajax request failed: ' + error);
+                  }); 
+             }, 
+             function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+                 }); 
+      }else{
+      ajax({
+             url: putUrl,
+             method: 'put',
+             type: 'json',
+             data: {"effect":"none"}
+             },
+             function(data) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(textNone);
+                 wind.show(); 
+               ajax({
+                  url: getUrl,
+                  type: 'json'
+                  },
+                  function(data) {
+           
+                    loop=data.state.effect;
+
+                  }, 
+                  function(error) {
+                    spashWind.hide();
+                    wind.hide();
+                    wind.add(errorajax);
+                    wind.show();
+                    console.log('The ajax request failed: ' + error);
+                  }); 
+             }, 
+             function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+                 }); 
+      }
+    });
+  }  
+  break;
+    
+    /**
+     * Selecting a group
+     *
+     */
+    
+  case 6: 
+    Accel.init();
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    var lu=0; //number of group found from ajax
+   
+    ajax({
+          url: 'http://'+ipAddr+'/api/'+developer+'/groups',
+          method:'get',
+          type:'json'
+          },
+          function(data){
+            var key=[];
+            var groups=data;
+            
+            errorLight=data[0];
+            console.log(errorLight);
+            if(errorLight!==undefined){
+                key=Object.keys(errorLight);
+                console.log(key[0]);
+            }else{
+                key[0]="success";
+            }
+            if(key[0]==="error"){
+                console.log(errorLight.error.description);
+            
+                var errore = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text: errorLight.error.description,
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+                              
+            }else{
+            
+              Object.size = function(obj) {
+                      var size = 0, key;
+                      for (key in obj) {
+                          if (obj.hasOwnProperty(key)) size++;
+                          }
+                      return size;
+                      };
+              lu=Object.size(groups);
+                console.log(lu);
+            }
+            },
+          function(error) {
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+              console.log('The ajax request failed: ' + error);
+          });
+    var a=0;
+    if(errorLight===undefined){
+      Accel.on('tap',function(e){
+            
+            var text = new UI.Text({
+                        position: new Vector2(0, 0),
+                        size: new Vector2(144, 168),
+                        text:'You choose group '+a,
+                        font:'GOTHIC_28_BOLD',
+                        color:'black',
+                        textOverflow:'wrap',
+                        textAlign:'center',
+                        backgroundColor:'white'
+                        });
+            
+             spashWind.hide();
+             wind.hide();
+             wind.add(text);
+             wind.show();         
+      groupNum=a;
+      if(a&lt;lu){a=a+1;
+      }else{
+        a=0;
+      }
+      getGroupUrl='http://'+ipAddr+'/api/'+developer+'/groups/'+groupNum+'/'; 
+      putGroupUrl='http://'+ipAddr+'/api/'+developer+'/groups/'+groupNum+'/action/'; 
+      });
+    }  
+  break;
+    
+    /**
+     * Switching group on/off
+     *
+     */
+    
+  case 7: 
+    Accel.init();
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    var stata;
+    ajax({
+          url: getGroupUrl,
+          method: 'get',
+          type: 'json',
+          },
+          function(data){
+              var key=[];
+              
+              errorLight=data[0];
+              if(errorLight!==undefined){
+                  key=Object.keys(errorLight);
+                  console.log(key[0]);
+              }else{
+                  key[0]="success";
+              }
+              if(key[0]==="error"){
+                console.log(errorLight.error.description);
+                var errore = new UI.Text({
+                      position: new Vector2(0, 0),
+                      size: new Vector2(144, 168),
+                      text: errorLight.error.description,
+                      font:'GOTHIC_28_BOLD',
+                      color:'black',
+                      textOverflow:'wrap',
+                      textAlign:'center',
+                      backgroundColor:'white'
+                      });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+                              
+             }else{
+               console.log(getGroupUrl);
+                stata=data.action.on;
+               console.log(stata);
+             }
+        }, 
+        function(error) {
+            console.log('The ajax request failed: ' + error);
+            spashWind.hide();
+            wind.hide();
+            wind.add(errorajax);
+            wind.show();
+          }); //chiude ajax
+    if(errorLight===undefined){
+      Accel.on('tap', function(e){
+          console.log(stata);
+          if(stata===false){
+          var text = new UI.Text({
+              position: new Vector2(0, 0),
+              size: new Vector2(144, 168),
+              text:'Your light is ON!',
+              font:'GOTHIC_28_BOLD',
+              color:'black',
+              textOverflow:'wrap',
+              textAlign:'center',
+              backgroundColor:'white'
+              });
+          ajax({  
+                url: putGroupUrl,
+                method: 'put',
+                type: 'json',
+                data: {"on":true}
+                },
+                function(data) {
+                    spashWind.hide();
+                    wind.hide();
+                    wind.add(text);
+                    wind.show(); 
+                    ajax({
+                          url: getGroupUrl,
+                          method: 'get',
+                          type: 'json',
+                          },
+                          function(data){                          
+                              stata=data.action.on;
+                              console.log('1');
+                          }, 
+                          function(error) {
+                              console.log('The ajax request failed: ' + error);
+                              spashWind.hide();
+                              wind.hide();
+                              wind.add(errorajax);
+                              wind.show();
+                          }); //chiude ajax
+                }, 
+                function(error) {
+                    spashWind.hide();
+                    wind.hide();
+                    wind.add(errorajax);
+                    wind.show();
+                    console.log('The ajax request failed: ' + error);
+                }); 
+              
+          }else{
+                var newText = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text:'Your light is OFF!',
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                 ajax({
+                        url: putGroupUrl,
+                        method: 'put',
+                        type: 'json',
+                        data: {"on":false}
+                        },
+                        function(data) {
+                          
+                             spashWind.hide();
+                             wind.hide();
+                             wind.add(newText);
+                             wind.show(); 
+                             ajax({
+                                  url: getGroupUrl,
+                                  method: 'get',
+                                  type: 'json',
+                            },
+                            function(data){                          
+                                  stata=data.action.on;
+                                  console.log('2');
+                            }, 
+                            function(error) {
+                                  console.log('The ajax request failed: ' + error);
+                                  spashWind.hide();
+                                  wind.hide();
+                                  wind.add(errorajax);
+                                  wind.show();
+                            }); //chiude ajax
+                        }, 
+                        function(error) {
+                            console.log('The ajax request failed: ' + error);
+                            spashWind.hide();
+                            wind.hide();
+                            wind.add(errorajax);
+                            wind.show();
+                        }); 
+            }
+          }); //chiude accel.on
+    }  
+  break;
+    
+    /**
+     * Changing group color
+     *
+     */
+    
+  case 8: 
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    Accel.init();
+
+    var atext = new UI.Text({
+        position: new Vector2(0, 0),
+        size: new Vector2(144, 168),
+        text:'You changed the color, is it the one you wanted?',
+        font:'GOTHIC_28_BOLD',
+        color:'black',
+        textOverflow:'wrap',
+        textAlign:'center',
+        backgroundColor:'white'
+        });
+  
+    var c;
+    ajax({
+         url: getGroupUrl,
+         type: 'json'
+         },
+         function(data) {
+             var key=[];         
+             
+             errorLight=data[0];
+             console.log(errorLight);
+             if(errorLight!==undefined){
+                 key=Object.keys(errorLight);
+                 console.log(key[0]);
+             }else{
+                 key[0]="success";
+             }
+             if(key[0]==="error"){
+                 console.log(errorLight.error.description);
+                 var errore = new UI.Text({
+                     position: new Vector2(0, 0),
+                     size: new Vector2(144, 168),
+                     text: errorLight.error.description,
+                     font:'GOTHIC_28_BOLD',
+                     color:'black',
+                     textOverflow:'wrap',
+                     textAlign:'center',
+                     backgroundColor:'white'
+                     });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+             }else{
+                c=data.action.hue;
+             }
+           }, 
+           function(error) {
+               spashWind.hide();
+               wind.hide();
+               wind.add(errorajax);
+               wind.show();
+               console.log('The ajax request failed: ' + error);
+            }); 
+    if(errorLight===undefined){
+      Accel.on('tap', function(e){
+        ajax({
+             url: putGroupUrl,
+             method: 'put',
+             type: 'json',
+             data: {"hue":c}
+             },
+             function(data) {
+                       spashWind.hide();
+                       wind.hide();
+                       wind.add(atext);
+                       wind.show(); 
+                       if(c&lt;52850){c=c+12150;}
+                       else{c=0;}
+             },
+            function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+            }); 
+        });
+    }
+break;
+    
+    /**
+     * Changing group saturation
+     *
+     */
+    
+case 9: 
+     Accel.init();
+     spashWind.add(spashText);
+     spashWind.show();
+     wind.hide();
+     var Text = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You changed the saturation, is it the one you wanted? !',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+     var s;
+     ajax({
+          url: getGroupUrl,
+          type: 'json'
+          },
+          function(data) {
+              var key=[];
+            
+              errorLight=data[0];
+              console.log(errorLight);
+              if(errorLight!==undefined){
+                  key=Object.keys(errorLight);
+                  console.log(key[0]);
+              }else{
+                  key[0]="success";
+              }
+              if(key[0]==="error"){
+                  console.log(errorLight.error.description);
+                  var errore = new UI.Text({
+                      position: new Vector2(0, 0),
+                      size: new Vector2(144, 168),
+                      text: errorLight.error.description,
+                      font:'GOTHIC_28_BOLD',
+                      color:'black',
+                      textOverflow:'wrap',
+                      textAlign:'center',
+                      backgroundColor:'white'
+                      });
+                  spashWind.hide();
+                  wind.hide();
+                  wind.add(errore);
+                  wind.show();
+              }else{
+                  s=data.action.sat;
+              }
+          }, 
+          function(error) {
+              console.log('The ajax request failed: ' + error);
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+          }); 
+    if(errorLight===undefined){
+       Accel.on('tap', function(e){
+            ajax({
+                 url: putGroupUrl,
+                 method: 'put',
+                 type: 'json',
+                 data: {"sat":s}
+                 },
+                 function(data) {
+                     spashWind.hide();
+                     wind.hide();
+                     wind.add(Text);
+                     wind.show(); 
+                     if(s&lt;204){s=s+50;}
+                     else{s=0;}
+                 }, 
+                 function(error) {
+                     spashWind.hide();
+                     wind.hide();
+                     wind.add(errorajax);
+                     wind.show();
+                     console.log('The ajax request failed: ' + error);
+                 }); 
+       });
+    }
+  break;
+    
+    /**
+     * Changing group brightness
+     *
+     */ 
+    
+  case 10: 
+         Accel.init();
+     spashWind.add(spashText);
+     spashWind.show();
+    wind.hide();
+     var text3 = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You changed the brightness, is it the one you wanted? !',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+     var b;
+     ajax({
+          url: getGroupUrl,
+          type: 'json'
+          },
+          function(data) {
+            var key=[];
+            errorLight=data[0];
+            console.log(errorLight);
+            if(errorLight!==undefined){
+              key=Object.keys(errorLight);
+              console.log(key[0]);
+            }else{
+              key[0]="success";
+            }
+            if(key[0]==="error"){
+                console.log(errorLight.error.description);
+                var errore = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text: errorLight.error.description,
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+            }else{
+                b=data.action.bri;
+            }
+          }, 
+          function(error) {
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+              console.log('The ajax request failed: ' + error);
+              }); 
+    if(errorLight===undefined){
+     Accel.on('tap', function(e){
+        ajax({
+             url: putGroupUrl,
+             method: 'put',
+             type: 'json',
+             data: {"bri":b}
+             },
+             function(data) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(text3);
+                 wind.show(); 
+                 if(b&lt;204){b=b+50;}
+                 else{b=1;}
+             }, 
+             function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+                 }); 
+       });
+    }
+  break;
+    
+    /**
+     * Group colorloop
+     *
+     */
+    
+  case 11:
+    Accel.init();
+    spashWind.add(spashText);
+    spashWind.show();
+    wind.hide();
+    var loopG;
+    var textGLoop = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You activated the colorloop!',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+    var textGNone = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'You deactivated the colorloop!',
+         font:'GOTHIC_28_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+
+     ajax({
+          url: getGroupUrl,
+          type: 'json'
+          },
+          function(data) {
+            var key=[];
+            errorLight=data[0];
+            console.log(errorLight);
+            if(errorLight!==undefined){
+              key=Object.keys(errorLight);
+              console.log(key[0]);
+            }else{
+              key[0]="success";
+            }
+            if(key[0]==="error"){
+                console.log(errorLight.error.description);
+                var errore = new UI.Text({
+                    position: new Vector2(0, 0),
+                    size: new Vector2(144, 168),
+                    text: errorLight.error.description,
+                    font:'GOTHIC_28_BOLD',
+                    color:'black',
+                    textOverflow:'wrap',
+                    textAlign:'center',
+                    backgroundColor:'white'
+                    });
+                spashWind.hide();
+                wind.hide();
+                wind.add(errore);
+                wind.show();
+            }else{
+                loopG=data.action.effect;
+            }
+          }, 
+          function(error) {
+              spashWind.hide();
+              wind.hide();
+              wind.add(errorajax);
+              wind.show();
+              console.log('The ajax request failed: ' + error);
+              }); 
+    if(errorLight===undefined){
+     Accel.on('tap', function(e){
+      if (loopG==="none"){
+        ajax({
+             url: putGroupUrl,
+             method: 'put',
+             type: 'json',
+             data: {"effect":"colorloop"}
+             },
+             function(data) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(textGLoop);
+                 wind.show(); 
+               
+                 ajax({
+                    url: getGroupUrl,
+                    type: 'json'
+                    },
+                    function(data) {
+                      loopG=data.action.effect;
+                    }, 
+                    function(error) {
+                        spashWind.hide();
+                        wind.hide();
+                        wind.add(errorajax);
+                        wind.show();
+                        console.log('The ajax request failed: ' + error);
+                    }); 
+               }, 
+               function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+                 }); 
+      }else{
+      ajax({
+             url: putGroupUrl,
+             method: 'put',
+             type: 'json',
+             data: {"effect":"none"}
+             },
+             function(data) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(textGNone);
+                 wind.show(); 
+                 ajax({
+                    url: getGroupUrl,
+                    type: 'json'
+                    },
+                    function(data) {
+                        loopG=data.action.effect;
+                    }, 
+                    function(error) {
+                        spashWind.hide();
+                        wind.hide();
+                        wind.add(errorajax);
+                        wind.show();
+                        console.log('The ajax request failed: ' + error);
+                    }); 
+             }, 
+             function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+                 }); 
+      }
+    });
+  }    
+  break;
+    
+    /**
+     * Configure an authorized user
+     *
+     */
+    
+  case 12: 
+    Accel.init();
+    var text2 = new UI.Text({
+         position: new Vector2(0, 0),
+         size: new Vector2(144, 168),
+         text:'Some starting info: Shake Pebble once, then go on the Bridge, press the Button on top of it and then shake once again. Be fast!',
+         font:'GOTHIC_18_BOLD',
+         color:'black',
+         textOverflow:'wrap',
+         textAlign:'center',
+         backgroundColor:'white'
+         });
+    spashWind.hide();
+    wind.hide();
+    wind.add(text2);
+    wind.show(); 
+    Accel.on('tap', function(e) {
+          ajax({
+            url: 'http://'+ipAddr+'/api/',
+             method: 'post',
+             type: 'json',
+             data: {"devicetype":"Pebble","username":"pebblepebble"}
+             },
+             function(data) {
+               var key=[];
+               errorLight=data[0];
+               key=Object.keys(errorLight);
+               console.log(key[0]);
+               if(key[0]==='error'){
+                   console.log(errorLight.error.description);
+                   var errore = new UI.Text({
+                       position: new Vector2(0, 0),
+                       size: new Vector2(144, 168),
+                       text: errorLight.error.description + '! Press the Bridge!',
+                       font:'GOTHIC_28_BOLD',
+                       color:'black',
+                       textOverflow:'wrap',
+                       textAlign:'center',
+                       backgroundColor:'white'
+                       });
+                   spashWind.hide();
+                   wind.hide();
+                   wind.remove(text2);
+                   wind.add(errore);
+                   wind.show();           
+              }else{
+                 if(key[0]==='success'){
+                 var text = new UI.Text({
+                     position: new Vector2(0, 0),
+                     size: new Vector2(144, 168),
+                     text:'You are done, bravo!',
+                     font:'GOTHIC_28_BOLD',
+                     color:'black',
+                     textOverflow:'wrap',
+                     textAlign:'center',
+                     backgroundColor:'white'
+                     });
+                     spashWind.hide();
+                     wind.hide();
+                     wind.remove(text2);
+                     wind.add(text);
+                     wind.show();
+                     developer='pebblepebble';
+                 }
+               }            
+             }, 
+             function(error) {
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 console.log('The ajax request failed: ' + error);
+                 }); 
+          });
+  
+  break;
+    
+    /**
+     * Automatically get the IP address.
+     *
+     */
+    
+  case 13:
+    ajax({
+                  url: 'https://www.meethue.com/api/nupnp',
+                  method: 'get',
+                  type: 'json'
+                 },
+             function(data) {
+                 ip=data[0].internalipaddress;
+                  ipAddr=ip; 
+                 var text4 = new UI.Text({
+                     position: new Vector2(0, 0),
+                     size: new Vector2(144, 168),
+                     text:'The ip addr is!'+ipAddr,
+                     font:'GOTHIC_28_BOLD',
+                     color:'black',
+                     textOverflow:'wrap',
+                     textAlign:'center',
+                     backgroundColor:'white'
+                     });
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(text4);
+                 wind.show();
+                
+             }, 
+             function(error) {
+                 console.log('The ajax request failed: ' + error);
+                 spashWind.hide();
+                 wind.hide();
+                 wind.add(errorajax);
+                 wind.show();
+                 }); 
+    console.log(ip);
+  break;
+  }//close menu's switch
+}); //close selection menu
+/**
+*
+*/
+/** This function allows to show the menu on the smartwatch
+ * @function .show
+ *@memberof menu
+ *@see menu
+ */
+
+menu.show();
+spashWind.hide();
+wind.hide();
+/** This function removes the window that is shown
+  * @function remove
+  * @memberof Window
+  */
+wind.remove();</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Namespaces</h3><ul><li><a href="Accel.html">Accel</a></li><li><a href="menu.html">menu</a></li><li><a href="Window.html">Window</a></li></ul><h3>Global</h3><ul><li><a href="global.html#ajax">ajax</a></li><li><a href="global.html#developer">developer</a></li><li><a href="global.html#getGroupUrl">getGroupUrl</a></li><li><a href="global.html#getUrl">getUrl</a></li><li><a href="global.html#groupNum">groupNum</a></li><li><a href="global.html#initialized">initialized</a></li><li><a href="global.html#ipAddr">ipAddr</a></li><li><a href="global.html#lightNum">lightNum</a></li><li><a href="global.html#putGroupUrl">putGroupUrl</a></li><li><a href="global.html#putUrl">putUrl</a></li><li><a href="global.html#size">size</a></li><li><a href="global.html#spashText">spashText</a></li><li><a href="global.html#UI">UI</a></li><li><a href="global.html#updateUrl">updateUrl</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.0</a> on Thu May 28 2015 11:49:05 GMT+0200 (ora legale Europa occidentale)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
